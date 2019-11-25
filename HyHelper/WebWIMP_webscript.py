@@ -1,25 +1,29 @@
 from mechanize import Browser
 from bs4 import BeautifulSoup
 
-def get_webwimp(coords):
+def get_webwimp(coords): ## coords is (lat, lon)
     """
     Gets the data table produced by WebWIMP (http://climate.geog.udel.edu/~wimp/) at the given coordinates.
     """
     br = Browser()
     url = 'http://climate.geog.udel.edu/~wimp/'
 
-    br.open(url)
-
+    webpage = br.open(url)
+    br.select_form(action='http://climate.geog.udel.edu/~wimp/wimp_map.php')
     br["yname"] = "Auto WebWimp"
 
-    br.submit()
-
+    webpage = br.submit()
+    br.select_form('wimp_lonlat')
     br["long"] = str(coords[1])
     br["lati"] = str(coords[0])
 
-    br.submit()
+    webpage = br.submit()
 
-    br.select_form(action="wimp_calc.php")
+    html = webpage.read()
+    if b'This location falls on a large body of water' in html:
+        raise ValueError('This location falls on a large body of water!')
+    else:
+        br.select_form(action="wimp_calc.php")
 
     webpage = br.submit()
 

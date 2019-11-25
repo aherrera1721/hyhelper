@@ -1,4 +1,4 @@
-from HyHelper import ONI_webscript, WebWIMP_webscript
+from HyHelper import ONI_webscript, WebWIMP_webscript, KNMI_webscript
 
 def traj_name_filter(traj, string):
     """

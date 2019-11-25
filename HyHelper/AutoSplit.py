@@ -13,11 +13,12 @@ class traj_request():
     traj_name: name of the trajectory (string)
 
     """
-    def __init__(self, traj_name, coords, dates, runtime, file_type="gdas1", alts=[500, 1000, 1500], get_reverse = False):
+    def __init__(self, traj_name, coords, dates, runtime, data=None, file_type="gdas1", alts=[500, 1000, 1500], get_reverse=False):
         self.traj_name = traj_name
         self.lat, self.lon = coords[0], coords[1]
         self.years, self.months, self.days, self.hours = dates[0], dates[1], dates[2], dates[3] #days can be in range format or a list of days
         self.runtime = runtime
+        self.data = data
         self.alts = alts
         self.direction = "Forward" if runtime > 0 else "Backward"
         self.get_reverse = get_reverse
@@ -27,13 +28,31 @@ class traj_request():
         traj_dates = []
         for y in self.years:
             for m in self.months:
-                for d in self.days:
-                    for h in self.hours:
-                        try:
-                            traj_dates.append(datetime.datetime(y, m, d, h))
-                        except:
-                            pass
+                if isinstance(self.days, dict):
+                    for d in self.days[m]:
+                        for h in self.hours:
+                            try:
+                                traj_dates.append(datetime.datetime(y, m, d, h))
+                            except:
+                                pass
+                else:
+                    for d in self.days:
+                        for h in self.hours:
+                            try:
+                                traj_dates.append(datetime.datetime(y, m, d, h))
+                            except:
+                                pass
         return traj_dates
+
+data_dict = {
+    "Terrain Height" : "terr",
+    "Potential Temperature" : "tpot",
+    "Ambient Temperature" : "tamb",
+    "Rainfall" : "rain",
+    "Mixed Layer Depth" : "mixd",
+    "Relative Humidity" : "relh",
+    "Downward Solar Radiation Flux" : "dswf"
+}
 
 def week_no(dt):
     return str((int(dt.strftime("%d"))-1)//7 + 1)
@@ -50,7 +69,7 @@ def get_id(link_url):
     return parts[1]
 
 
-def get_traj(traj_req, traj_dump):
+def get_traj(traj_req, traj_dump, rev_info = None):
     """
     Generates the HySplit trajectory files for the given trajectory request at the given location.
     Will also generate reverse trajectories if the trajectory request says to.
@@ -58,7 +77,11 @@ def get_traj(traj_req, traj_dump):
 
     **TODO** Fix the reverse trajectory counter.
     """
-    count, total = 1, len(traj_req.alts)*len(traj_req.traj_dates()) 
+    if not rev_info:
+        count, total = 1, len(traj_req.alts)*len(traj_req.traj_dates()) 
+    else:
+        count, total = rev_info
+    
     if not os.path.exists(traj_dump):
         os.makedirs(traj_dump)
     
@@ -67,7 +90,10 @@ def get_traj(traj_req, traj_dump):
     
     for alt in traj_req.alts:
         for traj_date in traj_req.traj_dates():
-            print("Working on traj #: " + str(count) + "/" + str(total))
+            if not traj_req.traj_name.endswith("REVERSE"):
+                print("Working on traj #: " + str(count) + "/" + str(total))
+            else:
+                print("Working on reverse traj #: " + str(count) + "/" + str(total))
 
             br = Browser()
             br.open("https://www.ready.noaa.gov/hypub-bin/trajtype.pl?runtype=archive")
@@ -102,7 +128,10 @@ def get_traj(traj_req, traj_dump):
             else:
                 br["Start hour"] = [str(traj_date.hour)]
             br["Source hgt1"] = str(alt)
-            br["rain"] = ["1"]
+            
+            if traj_req.data:
+                for d in traj_req.data:
+                    br[data_dict[d]] = ["1"]
 
             br.submit()
             newpage(br)
@@ -118,7 +147,7 @@ def get_traj(traj_req, traj_dump):
                 alt_str = '0'+alt_str
 
             if not traj_req.traj_name.endswith("REVERSE"):
-                filename = os.path.join(traj_dump, traj_req.traj_name +"m"+ traj_date.strftime("%m")+"d"+traj_date.strftime("%d")+"y"+traj_date.strftime("%Y")+"h"+traj_date.strftime("%H"))
+                filename = os.path.join(traj_dump, "d"+traj_date.strftime("%d")+traj_req.traj_name +"m"+ traj_date.strftime("%m")+"y"+traj_date.strftime("%Y")+"h"+traj_date.strftime("%H"))
             else:
                 rev_traj_dump = traj_dump + '/reversetraj'
                 if not os.path.exists(rev_traj_dump):
@@ -137,7 +166,7 @@ def get_traj(traj_req, traj_dump):
                     last_line = line
                 rev_coords = (last_line.split()[9], last_line.split()[10])
                 rev_start_time = traj_date + datetime.timedelta(hours=traj_req.runtime)
-                rev_traj_name = traj_req.traj_name +"m"+ traj_date.strftime("%m")+"d"+traj_date.strftime("%d")+"y"+traj_date.strftime("%Y")+"h"+traj_date.strftime("%H")+"REVERSE"
+                rev_traj_name = "d"+traj_date.strftime("%d")+traj_req.traj_name +"m"+ traj_date.strftime("%m")+"y"+traj_date.strftime("%Y")+"h"+traj_date.strftime("%H")+"REVERSE"
                 rev_runtime = -traj_req.runtime
                 rev_dates = [[rev_start_time.year],[rev_start_time.month],[rev_start_time.day],[rev_start_time.hour]]
                 rev_file_type = traj_req.file_type
@@ -148,8 +177,12 @@ def get_traj(traj_req, traj_dump):
             count+=1
     
     if traj_req.get_reverse:
-        for tr in reverse_traj_requests:
-            get_traj(tr, traj_dump)
+        for ind, tr in enumerate(reverse_traj_requests):
+            count = ind+1
+            get_traj(tr, traj_dump, rev_info=(count, total))
     
-    if not traj_req.get_reverse:
+    if not traj_req.traj_name.endswith("REVERSE"):
         print("complete")
+
+#t_r = traj_request("Riverside_CA", (33.9806, -117.3755), [[2018], range(1, 13), range(1, 31, 14), [12]], -120, alts=[500]) 
+#get_traj(t_r, r"/Users/alexherrera/Desktop/Riverside_CA")
