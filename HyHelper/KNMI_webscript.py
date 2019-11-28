@@ -31,29 +31,33 @@ def get_knmi(coords, name, image_dump, pmin=10, offset=5, fields=["cru4_pre", "e
 
     br.open(url)
 
-    br.follow_link(get_link(br, "selectfield_obs2.cgi"))
-
-    br.follow_link(get_link(br, "field=cru4_pre"))
-
-    br.select_form(action="get_index.cgi")
-
-    br["lat1"] = str(coords[0])
-    br["lon1"] = str(coords[1])
-
-    br.submit()
-
-    correlate_link = get_link(br, "corfield.cgi")
-
-    total, count = 0, 1
-    for month in months:
-        if month == "1:12":
-            total += 12
-        else:
-            total += 1
-
-    total *= len(fields)
-
     for field in fields:
+        if "cru4" in field:
+            br.follow_link(get_link(br, "selectfield_obs2.cgi"))
+            br.follow_link(get_link(br, "field={}".format(field)))
+
+        elif "era5" in field:
+            br.follow_link(get_link(br, "selectfield_rea.cgi"))
+            br.select_form(action="select.cgi")
+            br["field"] = [field]
+            br.submit()
+
+        br.select_form(action="get_index.cgi")
+
+        br["lat1"] = str(coords[0])
+        br["lon1"] = str(coords[1])
+
+        br.submit()
+
+        correlate_link = get_link(br, "corfield.cgi")
+
+        total, count = 0, 1
+        for month in months:
+            if month == "1:12":
+                total += 12
+            else:
+                total += 1
+
         for month in months:
             br.follow_link(correlate_link)
 
@@ -79,7 +83,7 @@ def get_knmi(coords, name, image_dump, pmin=10, offset=5, fields=["cru4_pre", "e
             
             for pdf_link in pdf_links:
                 br.follow_link(pdf_link)
-                print("Generating image # {}/{}".format(count, total))
+                print("Generating {} image # {}/{}".format(field, count, total))
                 file_path = os.path.join(image_dump, "_".join([name, field, str(count)]))
                 for link in br.links():
                     if "pdf" in link.url:
@@ -88,3 +92,6 @@ def get_knmi(coords, name, image_dump, pmin=10, offset=5, fields=["cru4_pre", "e
             
                 urllib.request.urlretrieve("https://climexp.knmi.nl/" + pdf.url, file_path)
                 count += 1
+
+    return "Complete! Find files at {}".format(image_dump)
+print(get_knmi((33.98, -117.38), "knmi_test", r"/Users/alexherrera/Desktop"))
