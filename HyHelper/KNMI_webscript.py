@@ -19,7 +19,7 @@ def get_knmi(coords, name, image_dump, pmin=10, offset=5, fields=["cru4_pre", "e
         * `image_dump`: the directory to which to save the pdfs to
         * `pmin`: the cutoff p-value for the correlation
         * `offset`: how much to offset the corners of the correlation grid box from the original input coordinates
-        * `fields`: the field(s) used for the correlations ("cru4_pre" is CRU TS 4.02 0.5; "era5_tp" is ERA5 surface precipitation)
+        * `fields`: the field(s) used for the correlations ("cru4_pre" is CRU TS 4.03 (land) 0.5; "era5_tp" is ERA5 surface precipitation)
         * `months`: the month(s) for which to correlate over ("1:12" is all months separately; "0" is all months together)
     """
     
@@ -31,9 +31,9 @@ def get_knmi(coords, name, image_dump, pmin=10, offset=5, fields=["cru4_pre", "e
 
     br.open(url)
 
-    br.follow_link(get_link(br, "selectfield_obs2.cg"))
+    br.follow_link(get_link(br, "selectfield_obs2.cgi"))
 
-    br.follow_link(get_link(br, "field=cru4_dtr"))
+    br.follow_link(get_link(br, "field=cru4_pre"))
 
     br.select_form(action="get_index.cgi")
 
