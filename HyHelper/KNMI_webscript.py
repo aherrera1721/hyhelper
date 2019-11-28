@@ -94,4 +94,3 @@ def get_knmi(coords, name, image_dump, pmin=10, offset=5, fields=["cru4_pre", "e
                 count += 1
 
     return "Complete! Find files at {}".format(image_dump)
-print(get_knmi((33.98, -117.38), "knmi_test", r"/Users/alexherrera/Desktop"))
