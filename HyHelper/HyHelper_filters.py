@@ -51,4 +51,10 @@ def webwimp_filter(traj, coords, var='SURP'):
         }
     
     webwimp_data = WebWIMP_webscript.get_webwimp(coords)
-    return int(webwimp_data[traj.target_point.month][var_to_ind[var]]) != 0
+    val = int(webwimp_data[traj.target_point.month][var_to_ind[var]])
+    if var == 'SURP':
+        return val != 0
+    elif var == 'DIFF' or var == 'DST':
+        return val > 0
+    else:
+        return val != 0
