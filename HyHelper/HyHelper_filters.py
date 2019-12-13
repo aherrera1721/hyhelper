@@ -30,7 +30,7 @@ def oni_filter(traj, enso_type="N"):
 
     return oni_season_enso in enso_type
 
-def webwimp_filter(traj, coords, var='SURP'):
+def webwimp_filter(traj, coords, var='SURP', webwimp_data = False):
     """
     Filter out trajectories that have a non-zero value for the given variable at the given (lon, lat) coordinates.
     Data gathered from: http://climate.geog.udel.edu/~wimp/
@@ -50,7 +50,7 @@ def webwimp_filter(traj, coords, var='SURP'):
             'SST': 12
         }
     
-    webwimp_data = WebWIMP_webscript.get_webwimp(coords)
+    if not webwimp_data: webwimp_data = WebWIMP_webscript.get_webwimp(coords)
     val = int(webwimp_data[traj.target_point.month][var_to_ind[var]])
     if var == 'SURP':
         return val != 0

@@ -95,86 +95,103 @@ def get_traj(traj_req, traj_dump, rev_info = None):
             else:
                 print("Working on reverse traj #: " + str(count) + "/" + str(total))
 
-            br = Browser()
-            br.open("https://www.ready.noaa.gov/hypub-bin/trajtype.pl?runtype=archive")
-
-            newpage(br)
-
-            br["nsrc"] = ["1"] # user input
-            br["trjtype"] = ["1"] # user input
-
-            br.submit()
-            newpage(br)
-
-            br["SOURCELOC"] = ["decdegree"] # user input
-            br["Lat"] = str(traj_req.lat) # user input
-            br["Lon"] = str(traj_req.lon) # user input
-
-            br.submit()
-            newpage(br)
-
-            file = "gdas1."+traj_date.strftime("%b").lower()+traj_date.strftime("%y")+".w"+week_no(traj_date) # make a function to format file name to clean this up
-            br["mfile"] = [file] # user input
-
-            br.submit()
-            newpage(br)
-
-            br["direction"] = [traj_req.direction]
-            br["Start day"] = [traj_date.strftime("%d")]
-            br["duration"] = str(abs(traj_req.runtime))
-
-            if traj_date.hour == 0:
-                br["Start hour"] = ["00"]
+            ## trial ##
+            filename = os.path.join(traj_dump, traj_req.traj_name+"_d"+traj_date.strftime("%d")+"m"+ traj_date.strftime("%m")+"y"+traj_date.strftime("%Y")+"h"+traj_date.strftime("%H"))
+            if os.path.exists(filename):
+                print("File {} already exists".format(filename))
+                count += 1
             else:
-                br["Start hour"] = [str(traj_date.hour)]
-            br["Source hgt1"] = str(alt)
-            
-            if traj_req.data:
-                for d in traj_req.data:
-                    br[data_dict[d]] = ["1"]
+                br = Browser()
+                br.open("https://www.ready.noaa.gov/hypub-bin/trajtype.pl?runtype=archive")
 
-            br.submit()
-            newpage(br)
+                newpage(br)
+
+                br["nsrc"] = ["1"] # user input
+                br["trjtype"] = ["1"] # user input
+
+                br.submit()
+                newpage(br)
+
+                br["SOURCELOC"] = ["decdegree"] # user input
+                if traj_req.lat >= 0:
+                    br["Lat"] = str(traj_req.lat) # user input
+                    br["Latns"] = ["N"]
+                else:
+                    br["Lat"] = str(traj_req.lat*-1.0)
+                    br["Latns"] = ["S"]
+                
+                if traj_req.lon >= 0:
+                    br["Lon"] = str(traj_req.lon) # user input
+                    br["Lonew"] = ["E"]
+                else:
+                    br["Lon"] = str(traj_req.lat*-1.0)
+                    br["Lonew"] = ["W"]
+
+                br.submit()
+                newpage(br)
+
+                file = "gdas1."+traj_date.strftime("%b").lower()+traj_date.strftime("%y")+".w"+week_no(traj_date) # make a function to format file name to clean this up
+                br["mfile"] = [file] # user input
+
+                br.submit()
+                newpage(br)
+
+                br["direction"] = [traj_req.direction]
+                br["Start day"] = [traj_date.strftime("%d")]
+                br["duration"] = str(abs(traj_req.runtime))
+
+                if traj_date.hour == 0:
+                    br["Start hour"] = ["00"]
+                else:
+                    br["Start hour"] = [str(traj_date.hour)]
+                br["Source hgt1"] = str(alt)
+                
+                if traj_req.data != None:
+                    for d in traj_req.data:
+                        br[data_dict[d]] = ["1"]
+
+                br.submit()
+                newpage(br)
 
 
-            for link in br.links():
-                if "tdump" in link.url:
-                    id_ = get_id(link.url)
+                for link in br.links():
+                    if "tdump" in link.url:
+                        id_ = get_id(link.url)
 
-            alt_str = str(alt)
+                alt_str = str(alt)
 
-            while len(alt_str) < 4:
-                alt_str = '0'+alt_str
+                while len(alt_str) < 4:
+                    alt_str = '0'+alt_str
 
-            if not traj_req.traj_name.endswith("REVERSE"):
-                filename = os.path.join(traj_dump, "d"+traj_date.strftime("%d")+traj_req.traj_name +"m"+ traj_date.strftime("%m")+"y"+traj_date.strftime("%Y")+"h"+traj_date.strftime("%H"))
-            else:
-                rev_traj_dump = traj_dump + '/reversetraj'
-                if not os.path.exists(rev_traj_dump):
-                    os.makedirs(rev_traj_dump)
-                filename = os.path.join(rev_traj_dump, traj_req.traj_name)
+                if not traj_req.traj_name.endswith("REVERSE"):
+                    filename = os.path.join(traj_dump, traj_req.traj_name+"_d"+traj_date.strftime("%d")+"m"+ traj_date.strftime("%m")+"y"+traj_date.strftime("%Y")+"h"+traj_date.strftime("%H"))
+                else:
+                    rev_traj_dump = traj_dump + '/reversetraj'
+                    if not os.path.exists(rev_traj_dump):
+                        os.makedirs(rev_traj_dump)
+                    filename = os.path.join(rev_traj_dump, traj_req.traj_name)
 
-            data = br.open("https://www.ready.noaa.gov/hypubout/tdump."+id_+".txt").read()
-            save = open(filename, 'wb')
-            save.write(data)
-            save.close()
-            
-            
-            if traj_req.get_reverse:
-                f = open(filename, "r")
-                for line in f:
-                    last_line = line
-                rev_coords = (last_line.split()[9], last_line.split()[10])
-                rev_start_time = traj_date + datetime.timedelta(hours=traj_req.runtime)
-                rev_traj_name = "d"+traj_date.strftime("%d")+traj_req.traj_name +"m"+ traj_date.strftime("%m")+"y"+traj_date.strftime("%Y")+"h"+traj_date.strftime("%H")+"REVERSE"
-                rev_runtime = -traj_req.runtime
-                rev_dates = [[rev_start_time.year],[rev_start_time.month],[rev_start_time.day],[rev_start_time.hour]]
-                rev_file_type = traj_req.file_type
-                rev_traj_request = traj_request(rev_traj_name, rev_coords, rev_dates, file_type=rev_file_type, runtime=rev_runtime, alts = [float(last_line.split()[11])])
+                data = br.open("https://www.ready.noaa.gov/hypubout/tdump."+id_+".txt").read()
+                save = open(filename, 'wb')
+                save.write(data)
+                save.close()
+                
+                
+                if traj_req.get_reverse:
+                    f = open(filename, "r")
+                    for line in f:
+                        last_line = line
+                    rev_coords = (last_line.split()[9], last_line.split()[10])
+                    rev_start_time = traj_date + datetime.timedelta(hours=traj_req.runtime)
+                    rev_traj_name = traj_req.traj_name +"_d"+traj_date.strftime("%d")+"m"+ traj_date.strftime("%m")+"y"+traj_date.strftime("%Y")+"h"+traj_date.strftime("%H")+"REVERSE"
+                    rev_runtime = -traj_req.runtime
+                    rev_dates = [[rev_start_time.year],[rev_start_time.month],[rev_start_time.day],[rev_start_time.hour]]
+                    rev_file_type = traj_req.file_type
+                    rev_traj_request = traj_request(rev_traj_name, rev_coords, rev_dates, file_type=rev_file_type, runtime=rev_runtime, alts = [float(last_line.split()[11])])
 
-                reverse_traj_requests.append(rev_traj_request)
-            
-            count+=1
+                    reverse_traj_requests.append(rev_traj_request)
+                
+                count+=1
     
     if traj_req.get_reverse:
         for ind, tr in enumerate(reverse_traj_requests):
@@ -183,6 +200,3 @@ def get_traj(traj_req, traj_dump, rev_info = None):
     
     if not traj_req.traj_name.endswith("REVERSE"):
         print("complete")
-
-#t_r = traj_request("Riverside_CA", (33.9806, -117.3755), [[2018], range(1, 13), range(1, 31, 14), [12]], -120, alts=[500]) 
-#get_traj(t_r, r"/Users/alexherrera/Desktop/Riverside_CA")

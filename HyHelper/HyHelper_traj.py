@@ -1,4 +1,5 @@
 import os, shutil, datetime
+from .WebWIMP_webscript import *
 
 """
 HyHelper (Hysplit Helper) is a Python framework designed to make understanding and organizing Hysplit trajectory endpoint files easy.
@@ -321,7 +322,7 @@ class Traj_Group():
         
         return save_path
     
-    def filter_group(self, traj_group_filter, location, diff=False, move=False, filter_args=list(), filter_kwargs=dict()):
+    def filter_group(self, traj_group_filter, location, filter_name=None, diff=False, move=False, filter_args=list(), filter_kwargs=dict()):
         """
         Creates a folder at the given `location` directory with the trajectories in the group that satisfy the `traj_group_filter` function.
         Parameter `diff` can be set to True to generate the difference trajectory group at the given `location` directory.
@@ -335,7 +336,11 @@ class Traj_Group():
         **NOTE** It is very important to ensure the `traj` is the first argument in your `traj_group_filter` function
         """
 
-        filter_name = traj_group_filter.__name__
+        if filter_name == None:
+            filter_name = traj_group_filter.__name__
+        
+        if filter_name == "webwimp_filter":
+            webwimp_data = get_webwimp(filter_args[0])
         
         filter_group_name = "_".join([self.group_name, filter_name])
         filter_dir = os.path.join(location, filter_group_name)
@@ -349,6 +354,8 @@ class Traj_Group():
                 os.makedirs(diff_dir)
         
         for traj in self.trajs:
+            if filter_name == "webwimp_filter":
+                filter_kwargs["webwimp_data"] = webwimp_data
             if traj_group_filter(traj, *filter_args, **filter_kwargs):
                 if move:
                     shutil.move(traj.traj_path, filter_dir)
